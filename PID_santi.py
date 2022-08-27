@@ -157,8 +157,6 @@ for i in range(start= 6,stop=24,step=1):
 m = sum(pendiente)/len(pendiente)   #En m guardo el promedio de las pendientes. 
                                     #Luego esta pendiente la voy a utilizar para convertir
                                     #Velocidad a Voltaje, ya que hay una relación vel=m*volt del motor. 
-
-
 #%%
 """     Cálculo de la señal de control ( u(t) ) y  de los términos PID
 
@@ -188,25 +186,25 @@ def señal_control(P,I,D):
 
 """Posicion Vs Tiempo para distintos valores de Kp"""
 
-posicion = [] ; velocidad =[] ; tiempo = np.linspace(0,50,num=50)
+posicion = [] ; velocidad =[] ; kp_lista=["Poner varlores de Kp"] ; tiempo = np.linspace(0,50,num=50)
+setpoint = 10 
 
-kp=2 ; setpoint = 10 
-
-#Primer paso
-pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
-posicion.append(pos)
-velocidad.append(vel)
-
-e_0 = error(setpoint,pos) #En este caso el error es +10.
-u = señal_control(P(kp,e_0), 0, 0)
-
-
-for t in tiempo:
-    pos, vel = setVoltageGetData(ser, u)
+for kp in kp_lista:
+    #Primer paso
+    pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
     posicion.append(pos)
+    velocidad.append(vel)
     
-    e = error(setpoint, pos)
-    u = señal_control(P(kp,e), 0, 0)
+    e_0 = error(setpoint,pos) #Error Inicial.
+    u = señal_control(P(kp,e_0), 0, 0)
+    
+    for t in tiempo:
+        pos, vel = setVoltageGetData(ser, m*u)
+        posicion.append(pos)
+        velocidad.append(vel)
+        
+        e = error(setpoint, pos)
+        u = señal_control(P(kp,e), 0, 0)
     
 plt.plot(tiempo, posicion, '--', c='tab:red')
 plt.ylabel('Posición', size=15)
@@ -232,15 +230,18 @@ pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,ve
 posicion.append(pos)
 velocidad.append(vel)
 
-e_int = 0 
-e_0 = error(setpoint,pos) #En este caso el error es +10.
-e_int = e_int + e_0
+#Error inical. 
+e_0 = error(setpoint,pos) 
+
+#Errores para el termino integral.
+e_int_0 = 0 
+e_int = e_int_0 + e_0
 
 u = señal_control(P(kp,e_0), I(ki,e_int),0)
 
 
 for t in tiempo:
-    pos, vel = setVoltageGetData(ser, u)
+    pos, vel = setVoltageGetData(ser, m*u)
     posicion.append(pos)
     
     e = error(setpoint, pos)
@@ -263,27 +264,31 @@ plt.show()
 
 posicion = [] ; velocidad =[] ; tiempo = np.linspace(0,50,num=50)
 
-kp=2 ; ki = 2 ; kd = 2 ; setpoint = 10 ; dt =0.1
+kp=2 ; ki = 0 ; kd = 2 ; setpoint = 10 ; dt =0.1
 
 #Primer paso
 pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
 posicion.append(pos)
 velocidad.append(vel)
 
-e_0 = 0 
-e = error(setpoint,pos) #En este caso el error es +10.
+#Error incial.
+e_0 = error(setpoint,pos) 
 
+#Errores para el termino derivativo.
+e_prev_0 = 0 
+e_prev = e_prev_0 + e_0  
 
 u = señal_control(P(kp,e_0), 0 ,D(kd,e,e_0,dt))
 
 
 for t in tiempo:
-    pos, vel = setVoltageGetData(ser, u)
+    pos, vel = setVoltageGetData(ser, m*u)
     posicion.append(pos)
+    velocidad.append(vel)
     
     e = error(setpoint, pos)
-    e_int = e_int + e
-    u = señal_control(P(kp,e), I(ki,e_int), 0)
+    e_prev = e_prev + e
+    u = señal_control(P(kp,e),0 , D(kd,e,e_prev,dt))
 
 plt.plot(tiempo, posicion, '--', c='tab:red')
 plt.ylabel('Posición', size=15)
@@ -294,13 +299,52 @@ plt.show()
 
 #%%
 
+"""   ------------------------    Controlador PDI      ------------------------""" 
+
+posicion = [] ; velocidad =[] ; tiempo = np.linspace(0,50,num=50)
+
+kp=2 ; ki = 2 ; kd = 2 ; setpoint = 10 ; dt =0.1
+
+#Primer paso
+pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
+posicion.append(pos)
+velocidad.append(vel)
+
+# Calculo error inicial. En este caso el error es +10.
+e_0 = error(setpoint,pos) 
+
+#Errores para en el termino integral.
+e_int_0 = 0 
+e_int = e_int_0 + e_0
+
+#Errores para el termino derivativo.
+e_prev_0 = 0 
+e_prev = e_prev_0 + e_0  
+
+u = señal_control(P(kp,e_0), 0 ,D(kd,e,e_0,dt))
+
+
+for t in tiempo:
+    pos, vel = setVoltageGetData(ser, m*u)
+    posicion.append(pos)
+    velocidad.append(vel)
+    
+    e = error(setpoint, pos)
+    e_prev = e_prev + e
+    e_int = e_int + e
+    u = señal_control(P(kp,e),I(ki,e_int) , D(kd,e,e_prev,dt))
+
+plt.plot(tiempo, posicion, '--', c='tab:red')
+plt.ylabel('Posición', size=15)
+plt.xlabel('Tiempo', size=15)
+plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
+plt.legend()
+plt.show()
 
 
 
-
-
-
-
+#%%
+"""   ------------------------    Método Ziegler Nichols      ------------------------""" 
 
 
 
