@@ -1,4 +1,5 @@
 #%%
+import tkinter as tk
 from tkinter import *
 import threading
 import time
@@ -42,6 +43,23 @@ def setVoltageGetData(puerto,voltaje):
     str = 'V%f\n\r' % (voltaje)
     puerto.write(bytes(str,'utf-8'))
     time.sleep(0.002)
+    s = puerto.readline(25)
+    pos = float(s[0:9])
+    vel = float(s[10:23])  
+    return pos,vel
+
+def setVoltage(puerto,voltaje):
+    puerto.flushInput()
+    str = 'V%f\n\r' % (voltaje)
+    puerto.write(bytes(str,'utf-8'))
+    time.sleep(0.002)
+    s = puerto.readline(25)
+    pos = float(s[0:9])
+    vel = float(s[10:23])  
+    return pos,vel
+
+def GetData(puerto):
+    time.sleep(0.001)
     s = puerto.readline(25)
     pos = float(s[0:9])
     vel = float(s[10:23])  
@@ -127,16 +145,17 @@ for t in tiempo:
 #%%
 """   ------------------------    Medición continua      ------------------------""" 
 
-#"Defino" el puerto serie. 
-ser = serial.Serial(port='COM4', baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=0.005, xonxoff=0, rtscts=0) 
-v = 0 #Voltaje inicial. 
+# #"Defino" el puerto serie. 
+# ser = serial.Serial(port='COM4', baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=0.005, xonxoff=0, rtscts=0) 
+# v = 0 #Voltaje inicial. 
 
-#Primer paso
-pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
-posicion.append(pos)
-velocidad.append(vel)
+# #Primer paso
+# pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
+# posicion.append(pos)
+# velocidad.append(vel)
 
-# Calculo error inicial. En este caso el error es +10.
+# Calculo error inicial. En este caso el error es +10..
+pos = 0
 e_0 = error(setpoint,pos) 
 
 #Errores para en el termino integral.
@@ -147,15 +166,16 @@ e_int = e_int_0 + e_0
 e_prev_0 = 0 
 e_prev = e_prev_0 + e_0  
 
-class GUI():
+class GUI(Frame):
     def __init__(self):
+        self.CrearBoton()
         pass
     def CrearBoton(self):
-        self.boton = Tk()
+        # self.boton = Tk()
+        self.boton = Button(self, text="Parar",command=self.parar)
         self.label=Label(self.boton,text="")
-        self.label.grid(row=0,colum=1)
-        self.b1 = Button(self.boton, text="Parar",cammand=self.parar)
-        self.b1.grid(row=1,colum=0)
+        self.label.grid(row=0,column=1)
+        self.boton.grid(row=1,column=0)
         
         hilolabel = threading.Thread(target = Medir)
         hilolabel.run()
@@ -166,37 +186,81 @@ class GUI():
 
 def Medir():
     global v, e_int, e_prev
-    pos, vel = setVoltageGetData(ser, v)
-    e = error(setpoint,pos)
-    e_int = e_int + e
-    e_prev = e_prev + e
+    print("hola")
+    #pos, vel = setVoltageGetData(ser, v)
+    # e = error(setpoint,pos)
+    # e_int = e_int + e
+    # e_prev = e_prev + e
     
-    u = señal_control(P(kp,e),I(ki,e_int),D(kd,e,e_prev,dt))
-    v = m*u
-    Medir()
+    # u = señal_control(P(kp,e),I(ki,e_int),D(kd,e,e_prev,dt))
+    # v = 2*u
+    # Medir()
      
-def comenzar():
-    Bot.CrearBoton()
+# def comenzar():
+#     Bot.CrearBoton()
 
+Bot = Tk()
 Bot = GUI()
+Bot.mainloop()
 
-hiloGUI = threading.Thread(target = comenzar)
-hiloGUI.run()
+# hiloGUI = threading.Thread(target = comenzar)
+# hiloGUI.run()
 
+#%%
+""" --------  --------"""
+import random  as rnd
+import tkinter as tk
+from tkinter import ttk
+import threading
+import time
+import serial
+import math
+import numpy as np
+# 2 hilos y un while 
+
+flag = True
+alfa = 80
+
+def corregir (e):
+    e_prev = e_prev + e
+    e_int = e_int + e
+    u = señal_control(P(kp,e), I(ki,e_int), D(kd,e,e_prev,dt))
+    setVoltage(ser, m*u)
+    
+def loop_medir():
+    while flag:
+        if error() > alfa:
+            corregir()
+            print("corregir")
+            
+        time.sleep(1)
+    print("paró")
+    sys.exit()
+    
+def error():
+    pos, vel = GetData(ser)
+    e = setpoint - pos
+    print(e)
+    return e
+    
+def parar():
+    global flag
+    flag = False
+    
+def crearboton():
+    root = tk.Tk()
+    root.config(width=300, height=200)
+    root.title("Stopper PID")
+    boton = ttk.Button(text="Parar",command = parar)
+    boton.place(x=50, y=50)
+    root.mainloop()
+    
+
+hilo = threading.Thread(target = loop_medir)
+hilo.start()
+
+crearboton()
 
 #%%
 
-
-x = 0 
-
-def ass():
-    global x
-    if  x < 3:
-        print(x)
-        x = x + 1
-        ass()
-    else: 
-        print("FIN")
-        
-ass()
 

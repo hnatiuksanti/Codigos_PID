@@ -42,7 +42,10 @@ def write_and_ask(ser):
     print(s)
     
 # Para iniciar el controlador ejecutar las siguientes lineas:
-    
+   
+def guardar():
+    return
+
 ser = iniciar() #Inicia el controlador.
 reset(ser) # Luego lo resetea.
 
@@ -191,81 +194,84 @@ def señal_control(P,I,D):
 """   ------------------------    Controlador P      ------------------------"""
 
 """Posicion Vs Tiempo para distintos valores de Kp"""
-
-posicion = [] ; velocidad =[] ; kp_lista=["Poner varlores de Kp"] ; tiempo = np.linspace(0,50,num=50)
-setpoint = 10 
-i=0 #Variable que voy a usar para crear gráficos.
-for kp in kp_lista:
-    #Primer paso
-    pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
-    posicion.append(pos)
-    velocidad.append(vel)
-    
-    e_0 = error(setpoint,pos) #Error Inicial.
-    u = señal_control(P(kp,e_0), 0, 0)
-        
-    for t in tiempo:
-        pos, vel = setVoltageGetData(ser, m*u)
+def control_P(puerto,kp,ki,kd):
+    posicion = [] ; velocidad =[] ; tiempo = np.linspace(0,50,num=50)
+    setpoint = 10 
+    i=0 #Variable que voy a usar para crear gráficos.
+    for kp in kp_lista:
+        #Primer paso
+        pos, vel = setVoltageGetData(puerto, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
         posicion.append(pos)
         velocidad.append(vel)
         
-        e = error(setpoint, pos)
-        u = señal_control(P(kp,e), 0, 0)
-    
-    plt.plot(tiempo, posicion,'--', label = f"Kp={kp}")
-    i=i+1
-    time.sleep(0.02)
+        e_0 = error(setpoint,pos) #Error Inicial.
+        u = señal_control(P(kp,e_0), 0, 0)
+            
+        for t in tiempo:
+            pos, vel = setVoltageGetData(puerto, m*u)
+            posicion.append(pos)
+            velocidad.append(vel)
+            
+            e = error(setpoint, pos)
+            u = señal_control(P(kp,e), 0, 0)
+        
+        plt.plot(tiempo, posicion,'--', label = f"Kp={kp}")
+        i=i+1
+        time.sleep(0.02)
 
-plt.ylabel('Posición', size=15)
-plt.xlabel('Tiempo', size=15)
-plt.grid()
-plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
-plt.legend(loc=1)
-plt.show()
+    plt.ylabel('Posición', size=15)
+    plt.xlabel('Tiempo', size=15)
+    plt.grid()
+    plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
+    plt.legend(loc=1)
+    plt.show()
 
-
+control_P(ser,["Poner varlores de Kp"],0,0)
 
 #%%
-"""------------------------    Controlador PI      ------------------------"""
+"""------------------------    Controlador PI    ------------------------"""
 
 #Hace lo mismo que control_P solo que le agrega el termino integral
 """Posicion Vs Tiempo para distintos valores de Ki"""
-
-posicion = [] ; velocidad =[] ; ki_lista=["Poner varlores de Ki"]; tiempo = np.linspace(0,50,num=50)
-
-kp=2 ; setpoint = 10 ; Ti= 1
-i=0
-for ki in ki_lista:
-    #Primer paso
-    pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
-    posicion.append(pos)
-    velocidad.append(vel)
+def control_PI(puerto,kp,ki,kd):
+    posicion = [] ; velocidad =[] ; tiempo = np.linspace(0,50,num=50)
     
-    #Error inical. 
-    e_0 = error(setpoint,pos) 
-    
-    #Errores para el termino integral.
-    e_int_0 = 0 
-    e_int = (e_int_0 + e_0)*Ti
-    
-    u = señal_control(P(kp,e_0), I(ki,e_int),0)
-        
-    for t in tiempo:
-        pos, vel = setVoltageGetData(ser, m*u)
+    setpoint = 10 ; Ti= 1
+    i=0
+    for ki in ki_lista:
+        #Primer paso
+        pos, vel = setVoltageGetData(puerto, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
         posicion.append(pos)
+        velocidad.append(vel)
         
-        e = error(setpoint, pos)
-        e_int = (e_int + e)*Ti
-        u = señal_control(P(kp,e), I(ki,e_int), 0)
-
-    plt.plot(tiempo, posicion,'--', label = f"Ki={ki}")
-    i=i+1
+        #Error inical. 
+        e_0 = error(setpoint,pos) 
+        
+        #Errores para el termino integral.
+        e_int_0 = 0 
+        e_int = (e_int_0 + e_0)*Ti
+        
+        u = señal_control(P(kp,e_0), I(ki,e_int),0)
+            
+        for t in tiempo:
+            pos, vel = setVoltageGetData(puerto, m*u)
+            posicion.append(pos)
+            
+            e = error(setpoint, pos)
+            e_int = (e_int + e)*Ti
+            u = señal_control(P(kp,e), I(ki,e_int), 0)
     
-plt.ylabel('Posición', size=15)
-plt.xlabel('Tiempo', size=15)
-plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
-plt.legend(loc=1)
-plt.show()
+        plt.plot(tiempo, posicion,'--', label = f"Ki={ki}")
+        i=i+1
+    
+    plt.ylabel('Posición', size=15)
+    plt.xlabel('Tiempo', size=15)
+    plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
+    plt.legend(loc=1)
+    plt.show()
+
+control_PI(ser,kp,["Poner varlores de Ki"],0) 
+
 
 #%%
 """   ------------------------    Controlador PD     ------------------------""" 
@@ -273,86 +279,90 @@ plt.show()
 #Hace lo mismo que control_P solo que le agrega el termino derivativo
 
 """Posicion Vs Tiempo para distintos valores de Kd"""
+def control_PD(puerto,kp,ki,kd):
+    posicion = [] ; velocidad =[] ;tiempo = np.linspace(0,50,num=50)
+    
+    setpoint = 10 ; dt =1
+    
+    for kd in kd_lista:
+        #Primer paso
+        pos, vel = setVoltageGetData(puerto, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
+        posicion.append(pos)
+        velocidad.append(vel)
+        
+        #Error incial.
+        e_0 = error(setpoint,pos) 
+        
+        #Errores para el termino derivativo.
+        e_prev_0 = 0 
+        e_prev = e_prev_0 + e_0  
+        
+        u = señal_control(P(kp,e_0), 0 ,D(kd,e,e_0,dt))
+        
+        
+        for t in tiempo:
+            pos, vel = setVoltageGetData(puerto, m*u)
+            posicion.append(pos)
+            velocidad.append(vel)
+            
+            e = error(setpoint, pos)
+            e_prev = e_prev + e
+            u = señal_control(P(kp,e),0 , D(kd,e,e_prev,dt))
+    
+    plt.plot(tiempo, posicion, '--', c='tab:red')
+    plt.ylabel('Posición', size=15)
+    plt.xlabel('Tiempo', size=15)
+    plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
+    plt.legend()
+    plt.show()
+    
+control_PD(ser,kp,ki,["Poner varlores de Kd"])
 
-posicion = [] ; velocidad =[] ; kd_lista=["Poner varlores de Kd"] ;tiempo = np.linspace(0,50,num=50)
 
-kp=2 ; ki = 0 ; kd = 2 ; setpoint = 10 ; dt =1
+#%%
 
-for kd in kd_lista:
+"""   ------------------------    Controlador PID      ------------------------""" 
+def control_PID(puerto,kp,ki,kd,pulso_incial):
+    posicion = [] ; velocidad =[] ; tiempo = np.linspace(0,50,num=50)
+    
+    setpoint = 10 ; dt =0.1
+    
     #Primer paso
-    pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
+    pos, vel = setVoltageGetData(puerto, pulso_incial) #Le mando 0 volts al motor. Entonces pos,vel=0
     posicion.append(pos)
     velocidad.append(vel)
     
-    #Error incial.
+    # Calculo error inicial. En este caso el error es +10.
     e_0 = error(setpoint,pos) 
+    
+    #Errores para en el termino integral.
+    e_int_0 = 0 
+    e_int = e_int_0 + e_0
     
     #Errores para el termino derivativo.
     e_prev_0 = 0 
     e_prev = e_prev_0 + e_0  
     
-    u = señal_control(P(kp,e_0), 0 ,D(kd,e,e_0,dt))
-    
+    u = señal_control(P(kp,e_0), I(ki,e_int) ,D(kd,e,e_0,dt))
     
     for t in tiempo:
-        pos, vel = setVoltageGetData(ser, m*u)
+        pos, vel = setVoltageGetData(puerto, m*u)
         posicion.append(pos)
         velocidad.append(vel)
         
         e = error(setpoint, pos)
         e_prev = e_prev + e
-        u = señal_control(P(kp,e),0 , D(kd,e,e_prev,dt))
-
-plt.plot(tiempo, posicion, '--', c='tab:red')
-plt.ylabel('Posición', size=15)
-plt.xlabel('Tiempo', size=15)
-plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
-plt.legend()
-plt.show()
-
-#%%
-
-"""   ------------------------    Controlador PID      ------------------------""" 
-
-posicion = [] ; velocidad =[] ; tiempo = np.linspace(0,50,num=50)
-
-kp=2 ; ki = 2 ; kd = 2 ; setpoint = 10 ; dt =0.1
-
-#Primer paso
-pos, vel = setVoltageGetData(ser, 0) #Le mando 0 volts al motor. Entonces pos,vel=0
-posicion.append(pos)
-velocidad.append(vel)
-
-# Calculo error inicial. En este caso el error es +10.
-e_0 = error(setpoint,pos) 
-
-#Errores para en el termino integral.
-e_int_0 = 0 
-e_int = e_int_0 + e_0
-
-#Errores para el termino derivativo.
-e_prev_0 = 0 
-e_prev = e_prev_0 + e_0  
-
-u = señal_control(P(kp,e_0), 0 ,D(kd,e,e_0,dt))
-
-
-for t in tiempo:
-    pos, vel = setVoltageGetData(ser, m*u)
-    posicion.append(pos)
-    velocidad.append(vel)
+        e_int = e_int + e
+        u = señal_control(P(kp,e),I(ki,e_int) , D(kd,e,e_prev,dt))
     
-    e = error(setpoint, pos)
-    e_prev = e_prev + e
-    e_int = e_int + e
-    u = señal_control(P(kp,e),I(ki,e_int) , D(kd,e,e_prev,dt))
+    plt.plot(tiempo, posicion, '--', c='tab:red')
+    plt.ylabel('Posición', size=15)
+    plt.xlabel('Tiempo', size=15)
+    plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
+    plt.legend()
+    plt.show()
 
-plt.plot(tiempo, posicion, '--', c='tab:red')
-plt.ylabel('Posición', size=15)
-plt.xlabel('Tiempo', size=15)
-plt.axhline(y=setpoint, linestyle=':', c='k', label='Setpoint')
-plt.legend()
-plt.show()
+control_PID(ser,kp,ki,kd,0)
 
 
 #%%
@@ -360,7 +370,7 @@ plt.show()
 volt =  5
 respuesta = respuesta_pulso(volt)
 
-tiempo = respuesta[0]; posicion = [2]
+tiempo = respuesta[0]; voltaje = respuesta[1]; posicion = respuesta[2] ; velocidad = respuesta[3] 
 
 def sigmoid (x, A, h, slope):
     return 1 / (1 + np.exp ((h - x) / slope)) *A
@@ -368,9 +378,36 @@ def sigmoid (x, A, h, slope):
 p, _ = curve_fit(sigmoid, tiempo, posicion)
 
 A = p[0] ; xmedio = p[1] ;  slope = p[2] 
-# Show parameters for the fit
-# print(p)
 
+
+"Usando los tiempo de subida y tiempo muerto"
+"Primero tenes que conocer la recta pendiente."
+"Una vez que conoces la pendiente, tenes que encontrar las intersecciones con:"
+"El valor incial del sistma, y el valor final del sistema."
+"Los puntos donde intersecan serán: El tiempo muerto T1, y el Tiempo de subida T2, respectivamente."
+
+dY=0;dX=0;  #dY es la respuesta del sistema al escalon(vel o pos)
+            #dX es la amplitud del escalon. 
+
+T1=0;T2=0; #T1 es el tiempo muerto. Punto donde la recta pendiente corta
+
+ko = (dX * T2) / (dY * T1)
+
+"----Control P----"
+kp = ko 
+
+"----Control PI----"
+kp = 0.9*ko ; ki = (0.27*ko)/T1
+
+"----Control PD----"
+kp = 1.6*ko ; kd = (0.6*ko)/T1
+
+"----Control PID----"
+kp = 1.2*ko ; ki = (0.6*ko)/T1 ; kd = (0.6*ko)/T1
+
+# Probar los valores de kp,ki,kd obtenidos en el controlador PID.
+# Es probable que haya que ajustar las ctes.
+control_PID(ser,kp,ki,kd,volt)
 
 
 
@@ -378,27 +415,5 @@ A = p[0] ; xmedio = p[1] ;  slope = p[2]
 """   ------------------------    Setpoint fijo      ------------------------""" 
 setpoint = [10,100,1000,10000]
 
+        
 
-
-#%%
-"""   ------------------------    Medición a Lazo Cerrado      ------------------------""" 
-
-def controlador(voltaje):
-    pos,vel = setVoltageGetData(ser, voltaje)
-    controlador()
-controlador()
-
-
-    
-    
-
-
-
-
-
-
-
-
-
-    
-    
